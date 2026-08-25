@@ -4,7 +4,27 @@ An n8n-based AI automation system designed to help private school admission team
 
 The system receives enrollment inquiries, validates the submitted information, detects duplicate leads, evaluates enrollment intent using Gemini AI, assigns lead priority, stores results in Google Sheets, and alerts admission staff when a high-priority lead is detected.
 
+## Project Status
+
+**Version:** Production v1  
+**Status:** Completed and documented  
+**Last Updated:** August 2026
+
+This version includes:
+- Stable Lead ID and duplicate handling
+- Exact duplicate detection and AI skip
+- Gemini AI lead qualification
+- HOT / WARM / COLD prioritization
+- Deterministic priority guardrails
+- Confidence-based manual review
+- Google Sheets lead tracking
+- Telegram HOT lead notifications
+- Telegram failure handling
+- Global workflow error handling
+- School-specific admission configuration
+
 ---
+
 
 ## 🎯 Business Problem
 

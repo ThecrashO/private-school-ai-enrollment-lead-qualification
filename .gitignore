@@ -42,3 +42,5 @@ n8n-data/
 .idea/
 .DS_Store
 Thumbs.db
+
+PROJECT_LINKS.private.md
