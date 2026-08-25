@@ -55,7 +55,6 @@ Final admission decisions remain with the school admission team.
 ![System Architecture](docs/architecture.png)
 
 
-
 ## 🔄 Workflow Preview
 
 ![n8n Workflow Preview](docs/workflow-preview.png)
