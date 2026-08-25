@@ -1,0 +1,4060 @@
+{
+  "name": "AI Student Enrollment Lead Qualification System",
+  "nodes": [
+    {
+      "parameters": {
+        "pollTimes": {
+          "item": [
+            {
+              "mode": "everyMinute"
+            }
+          ]
+        },
+        "documentId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "REPLACE_WITH_GOOGLE_SHEET_ID",
+          "cachedResultName": "School Enrollment System"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "list",
+          "value": "Form Responses",
+          "cachedResultName": "Form Responses"
+        },
+        "event": "rowAdded",
+        "options": {}
+      },
+      "id": "b25c1956-ace8-4170-a7bf-f3aa45903fe9",
+      "name": "New Form Response",
+      "type": "n8n-nodes-base.googleSheetsTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        -272
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const out = [];\n\nfor (const item of $input.all()) {\n  const j = item.json;\n\n  const get = (k) =>\n    (j[k] === undefined || j[k] === null)\n      ? ''\n      : String(j[k]).trim();\n\n  const parentName = get('Parent Name');\n  const phone = get('Phone Number');\n  const email = get('Email');\n  const studentName = get('Student Name');\n  const studentAge = get('Student Age');\n  const currentGrade = get('Current Grade');\n  const interestedGrade = get('Interested Grade');\n  const enrollDate = get('Preferred Enrollment Date');\n  const program = get('Interested Program');\n\n  const message =\n    get('Parent Message') ||\n    get('Parent Message / Question') ||\n    get('Parent Message/Question');\n\n  const missing = [];\n\n  if (!parentName) missing.push('Parent Name');\n  if (!phone) missing.push('Phone Number');\n  if (!studentAge) missing.push('Student Age');\n  if (!interestedGrade) missing.push('Interested Grade');\n  if (!message) missing.push('Parent Message');\n\n  const isValid = missing.length === 0;\n\n  const now = new Date();\n\n  const pad = (n) => String(n).padStart(2, '0');\n\n  const ymd =\n    String(now.getFullYear()) +\n    pad(now.getMonth() + 1) +\n    pad(now.getDate());\n\n  const rand =\n    Math.random()\n      .toString(16)\n      .slice(2, 6)\n      .toUpperCase();\n\n  const leadId = 'SCH-' + ymd + '-' + rand;\n\n  const normalize = (v) =>\n    String(v || '')\n      .trim()\n      .toLowerCase()\n      .replace(/\\s+/g, '');\n\n  const duplicateKey =\n    normalize(phone) + '|' + normalize(studentName);\n\n  const submissionSignature = [\n    normalize(parentName),\n    normalize(phone),\n    normalize(email),\n    normalize(studentName),\n    normalize(studentAge),\n    normalize(currentGrade),\n    normalize(interestedGrade),\n    normalize(enrollDate),\n    normalize(program),\n    normalize(message),\n  ].join('|');\n\n  out.push({\n    json: {\n      leadId,\n      duplicateKey,\n      submissionSignature,\n      isValid,\n      missingFields: missing.join(', '),\n      errorMessage: isValid\n        ? ''\n        : 'Missing required information',\n      processingStartedTime: now.toISOString(),\n      parentName,\n      phone,\n      email,\n      studentName,\n      studentAge,\n      currentGrade,\n      interestedGrade,\n      enrollDate,\n      program,\n      message,\n    }\n  });\n}\n\nreturn out;"
+      },
+      "id": "86caa3c1-9a86-4a71-a906-baf0c41d5b74",
+      "name": "Validate & Prepare",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        224,
+        -272
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "valid",
+              "leftValue": "={{ $json.isValid }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "572f776b-cd66-42e2-a1c6-3b71da5753f3",
+      "name": "Input Valid?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        448,
+        -272
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "appendOrUpdate",
+        "documentId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "REPLACE_WITH_GOOGLE_SHEET_ID",
+          "cachedResultName": "School Enrollment System"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "list",
+          "value": "Leads",
+          "cachedResultName": "Leads"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Lead ID": "={{ $json.leadId }}",
+            "Processing Status": "PROCESSING",
+            "AI Status": "RUNNING",
+            "Telegram Status": "PENDING",
+            "Processing Started Time": "={{ $('Validate & Prepare').item.json.processingStartedTime }}",
+            "Parent Name": "={{ $('Validate & Prepare').item.json.parentName }}",
+            "Phone Number": "={{ $('Validate & Prepare').item.json.phone }}",
+            "Email": "={{ $('Validate & Prepare').item.json.email }}",
+            "Student Name": "={{ $('Validate & Prepare').item.json.studentName }}",
+            "Student Age": "={{ $('Validate & Prepare').item.json.studentAge }}",
+            "Current Grade": "={{ $('Validate & Prepare').item.json.currentGrade }}",
+            "Interested Grade": "={{ $('Validate & Prepare').item.json.interestedGrade }}",
+            "Preferred Enrollment Date": "={{ $('Validate & Prepare').item.json.enrollDate }}",
+            "Interested Program": "={{ $('Validate & Prepare').item.json.program }}",
+            "Parent Message": "={{ $('Validate & Prepare').item.json.message }}",
+            "Duplicate Key": "={{ $json.duplicateKey }}",
+            "Submission Signature": "={{ $('Validate & Prepare').item.json.submissionSignature }}"
+          },
+          "matchingColumns": [
+            "Duplicate Key"
+          ],
+          "schema": [
+            {
+              "id": "Lead ID",
+              "displayName": "Lead ID",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Processing Status",
+              "displayName": "Processing Status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "AI Status",
+              "displayName": "AI Status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Telegram Status",
+              "displayName": "Telegram Status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Error Message",
+              "displayName": "Error Message",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Processing Started Time",
+              "displayName": "Processing Started Time",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Qualified Time",
+              "displayName": "Qualified Time",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Parent Name",
+              "displayName": "Parent Name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Phone Number",
+              "displayName": "Phone Number",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Email",
+              "displayName": "Email",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Student Name",
+              "displayName": "Student Name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Student Age",
+              "displayName": "Student Age",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Current Grade",
+              "displayName": "Current Grade",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Interested Grade",
+              "displayName": "Interested Grade",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Preferred Enrollment Date",
+              "displayName": "Preferred Enrollment Date",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Interested Program",
+              "displayName": "Interested Program",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Parent Message",
+              "displayName": "Parent Message",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Lead Score",
+              "displayName": "Lead Score",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Priority",
+              "displayName": "Priority",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Qualification Status",
+              "displayName": "Qualification Status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Intent Score",
+              "displayName": "Intent Score",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Student Fit Score",
+              "displayName": "Student Fit Score",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Confidence Score",
+              "displayName": "Confidence Score",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Reason",
+              "displayName": "Reason",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Key Signals",
+              "displayName": "Key Signals",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Missing Information",
+              "displayName": "Missing Information",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Recommended Action",
+              "displayName": "Recommended Action",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Duplicate Key",
+              "displayName": "Duplicate Key",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Submission Signature",
+              "displayName": "Submission Signature",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {
+          "cellFormat": "RAW"
+        }
+      },
+      "id": "fc366282-ba73-4269-b07b-004f9629581b",
+      "name": "Set PROCESSING Status",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        1568,
+        -272
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Qualify the following school enrollment inquiry.\n\nLead ID: {{ $json[\"Lead ID\"] || $json.leadId || $json.lead_id || \"\" }}\nParent Name: {{ $json[\"Parent Name\"] || $json.parentName || $json.parent_name || \"\" }}\nPhone: {{ $json[\"Phone Number\"] || $json.phone || $json.phone_number || \"\" }}\nEmail: {{ $json[\"Email\"] || $json.email || \"\" }}\nStudent Name: {{ $json[\"Student Name\"] || $json.studentName || $json.student_name || \"\" }}\nStudent Age: {{ $json[\"Student Age\"] || $json.studentAge || $json.student_age || \"\" }}\nCurrent Grade: {{ $json[\"Current Grade\"] || $json.currentGrade || $json.current_grade || \"\" }}\nInterested Grade: {{ $json[\"Interested Grade\"] || $json.interestedGrade || $json.interested_grade || \"\" }}\nPreferred Enrollment Date: {{ $json[\"Preferred Enrollment Date\"] || $json.enrollDate || $json.preferred_enrollment_date || \"\" }}\nInterested Program: {{ $json[\"Interested Program\"] || $json.program || $json.interested_program || \"\" }}\nParent Message: {{ $json[\"Parent Message\"] || $json.message || $json.parent_message || \"\" }}",
+        "hasOutputParser": true,
+        "options": {
+          "systemMessage": "You are an AI admission assistant for Bright Future International Private School in Yangon, Myanmar.\n\nAnalyze student enrollment inquiries for lead qualification purposes.\nDo not make final admission or rejection decisions.\nDo not reveal internal reasoning.\n\nReturn ONLY structured JSON matching the required schema.\n\n=== SCHOOL CONFIGURATION ===\n\nSchool Name:\nBright Future International Private School\n\nLocation:\nYangon, Myanmar\n\nSchool Type:\nPrivate School\n\nAvailable Grades:\nNursery, Kindergarten, Grade 1 through Grade 10\n\nCurriculum:\nMyanmar Curriculum with English Enrichment Program\n\nAdmission Period:\nMain intake is from May to August.\nMid-year admission may be available depending on seat availability.\n\nRequired Documents:\n- Student birth certificate\n- Previous school report or transcript\n- Parent or guardian NRC copy\n- Passport-size student photos\n- Completed admission form\n\nBasic Age and Grade Guidelines:\n- Nursery: age 3+\n- Kindergarten: age 4-5\n- Grade 1: normally age 6+\n- Grade 2-10: previous grade completion is generally required\n\n=== LEAD QUALIFICATION RULES ===\n\nHigh Intent Signals:\n- Ready to enroll or apply\n- Asking how to begin the admission process\n- Clear enrollment timeline\n- Requesting a school visit\n- Requesting a placement test\n- Asking about admission dates together with clear enrollment intent\n- Providing specific student grade/program information together with a plan to enroll\n\nMedium Intent Signals:\n- Asking tuition fees without a clear enrollment commitment\n- Asking curriculum details\n- Asking school programs or activities\n- Asking general admission information\n- Interested in enrollment but timeline is unclear\n\nLow Intent Signals:\n- Only requesting general information\n- No clear enrollment timeline\n- No clear student education requirement\n- Very vague inquiry with little actionable information\n\nImportant Qualification Rules:\n- A tuition fee question alone is NOT enough to classify a lead as HOT.\n- HOT leads must show strong enrollment intent plus a clear timeline, admission request, school visit request, placement test request, or readiness to apply.\n- If the requested grade is not available, reduce student_fit_score and do not classify the lead as HOT.\n- If important student information is missing, reduce confidence_score.\n- AI recommendations are for admissions staff only. Final admission decisions belong to the admissions team.\n\nLead Priority Rules:\nHOT -> lead_score >= 85 AND strong enrollment intent AND clear timeline or clear admission action.\nWARM -> lead_score 60-84.\nCOLD -> lead_score < 60.\n\nScoring guidance:\nlead_score, intent_score, student_fit_score and confidence_score must be integers from 0 to 100.\n\nqualification_status must be one of:\nQualified, Needs Review, Nurture.\n\npriority must be exactly one of:\nHOT, WARM, COLD.\n\npriority must be consistent with lead_score and the intent rules above.\n\nkey_signals and missing_information must be concise comma-separated strings.\n\nrecommended_action must be a short practical next step for the admissions team."
+        }
+      },
+      "id": "9277cde7-4697-4cb4-8f16-c8f6230a0537",
+      "name": "AI Lead Qualification",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        1840,
+        -144
+      ],
+      "retryOnFail": true,
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "modelName": "models/gemini-flash-lite-latest",
+        "options": {
+          "temperature": 0.1
+        }
+      },
+      "id": "7fdd1bb1-0ba3-4e88-8a5c-14571601bbff",
+      "name": "Gemini Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1.1,
+      "position": [
+        1872,
+        112
+      ]
+    },
+    {
+      "parameters": {
+        "jsonSchemaExample": "{\"lead_score\":90,\"priority\":\"HOT\",\"qualification_status\":\"Qualified\",\"intent_score\":88,\"student_fit_score\":85,\"confidence_score\":92,\"reason\":\"Parent asked about tuition and admission dates with a clear enrollment timeline.\",\"key_signals\":\"Asked tuition fees; asked admission date; ready to enroll\",\"missing_information\":\"None\",\"recommended_action\":\"Call the parent within 24 hours to schedule a school visit.\"}"
+      },
+      "id": "dffe363c-36cc-411e-8d56-7c83892805bf",
+      "name": "Qualification Schema",
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.3,
+      "position": [
+        2000,
+        112
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "appendOrUpdate",
+        "documentId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "REPLACE_WITH_GOOGLE_SHEET_ID",
+          "cachedResultName": "School Enrollment System"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Leads",
+          "mode": "list",
+          "cachedResultName": "Leads"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Lead ID": "={{ $('Set PROCESSING Status').item.json[\"Lead ID\"] }}",
+            "Phone Number": "={{ $('Validate & Prepare').item.json.phone }}",
+            "Processing Status": "COMPLETED",
+            "AI Status": "SUCCESS",
+            "Qualified Time": "={{ $now.toISO() }}",
+            "Lead Score": "={{ $json.output.lead_score }}",
+            "Priority": "={{ $json.output.priority }}",
+            "Qualification Status": "={{ $json.output.qualification_status }}",
+            "Intent Score": "={{ $json.output.intent_score }}",
+            "Student Fit Score": "={{ $json.output.student_fit_score }}",
+            "Confidence Score": "={{ $json.output.confidence_score }}",
+            "Reason": "={{ $json.output.reason }}",
+            "Key Signals": "={{ $json.output.key_signals }}",
+            "Missing Information": "={{ $json.output.missing_information }}",
+            "Recommended Action": "={{ $json.output.recommended_action }}",
+            "Duplicate Key": "={{ $('Validate & Prepare').item.json.duplicateKey }}"
+          },
+          "matchingColumns": [
+            "Duplicate Key"
+          ],
+          "schema": [
+            {
+              "id": "Lead ID",
+              "displayName": "Lead ID",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Processing Status",
+              "displayName": "Processing Status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "AI Status",
+              "displayName": "AI Status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Telegram Status",
+              "displayName": "Telegram Status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Error Message",
+              "displayName": "Error Message",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Processing Started Time",
+              "displayName": "Processing Started Time",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Qualified Time",
+              "displayName": "Qualified Time",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Parent Name",
+              "displayName": "Parent Name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Phone Number",
+              "displayName": "Phone Number",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Email",
+              "displayName": "Email",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Student Name",
+              "displayName": "Student Name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Student Age",
+              "displayName": "Student Age",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Current Grade",
+              "displayName": "Current Grade",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Interested Grade",
+              "displayName": "Interested Grade",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Preferred Enrollment Date",
+              "displayName": "Preferred Enrollment Date",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Interested Program",
+              "displayName": "Interested Program",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Parent Message",
+              "displayName": "Parent Message",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Lead Score",
+              "displayName": "Lead Score",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Priority",
+              "displayName": "Priority",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Qualification Status",
+              "displayName": "Qualification Status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Intent Score",
+              "displayName": "Intent Score",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Student Fit Score",
+              "displayName": "Student Fit Score",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Confidence Score",
+              "displayName": "Confidence Score",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Reason",
+              "displayName": "Reason",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Key Signals",
+              "displayName": "Key Signals",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Missing Information",
+              "displayName": "Missing Information",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Recommended Action",
+              "displayName": "Recommended Action",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Duplicate Key",
+              "displayName": "Duplicate Key",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {
+          "cellFormat": "RAW"
+        }
+      },
+      "id": "bec35578-bbd7-4f00-9ce2-1fd4ac46c472",
+      "name": "Save Qualification Result",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        2768,
+        -272
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $('Validate AI Result & Apply Guardrails').item.json.output.priority }}",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "rightValue": "HOT",
+                    "id": "36a92691-c08d-4e14-8d91-f8720d44a099"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "HOT"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $('Validate AI Result & Apply Guardrails').item.json.output.priority }}",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "rightValue": "WARM",
+                    "id": "bd37dbbd-7085-47c6-b28a-aad009209e37"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "WARM"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $('Validate AI Result & Apply Guardrails').item.json.output.priority }}",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "rightValue": "COLD",
+                    "id": "5fe47a99-071a-4007-8bb6-9a4b127e3d75"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "COLD"
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra",
+          "renameFallbackOutput": "Unrouted"
+        }
+      },
+      "id": "1703d739-db0d-437c-9c19-96be12dd9c2b",
+      "name": "Priority Router",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        2992,
+        -304
+      ]
+    },
+    {
+      "parameters": {
+        "chatId": "REPLACE_WITH_TELEGRAM_CHAT_ID",
+        "text": "=🔥 New HOT Student Lead\n\nSchool:\nPrivate School Admission\n\nParent:\n{{ $('Validate & Prepare').item.json.parentName }}\n\nPhone:\n{{ $('Validate & Prepare').item.json.phone }}\n\nStudent:\n{{ $('Validate & Prepare').item.json.studentName }}\n\nGrade:\n{{ $('Validate & Prepare').item.json.interestedGrade }}\n\nScore:\n{{ $('AI Lead Qualification').item.json.output.lead_score }}/100\n\nReason:\n{{ $('AI Lead Qualification').item.json.output.reason }}\n\nRecommended Action:\n{{ $('AI Lead Qualification').item.json.output.recommended_action }}",
+        "additionalFields": {}
+      },
+      "id": "eb13d9be-852c-44ec-8d98-fc1eb945ce67",
+      "name": "HOT Lead Alert",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        3216,
+        -560
+      ],
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "operation": "appendOrUpdate",
+        "documentId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "REPLACE_WITH_GOOGLE_SHEET_ID",
+          "cachedResultName": "School Enrollment System"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "list",
+          "value": "Leads",
+          "cachedResultName": "Leads"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Phone Number": "={{ $('Validate & Prepare').item.json.phone }}",
+            "Telegram Status": "SENT",
+            "Duplicate Key": "={{ $('Validate & Prepare').item.json.duplicateKey }}"
+          },
+          "matchingColumns": [
+            "Duplicate Key"
+          ],
+          "schema": [
+            {
+              "id": "Lead ID",
+              "displayName": "Lead ID",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Processing Status",
+              "displayName": "Processing Status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "AI Status",
+              "displayName": "AI Status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Telegram Status",
+              "displayName": "Telegram Status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Error Message",
+              "displayName": "Error Message",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Processing Started Time",
+              "displayName": "Processing Started Time",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Qualified Time",
+              "displayName": "Qualified Time",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Parent Name",
+              "displayName": "Parent Name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Phone Number",
+              "displayName": "Phone Number",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Email",
+              "displayName": "Email",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Student Name",
+              "displayName": "Student Name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Student Age",
+              "displayName": "Student Age",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Current Grade",
+              "displayName": "Current Grade",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Interested Grade",
+              "displayName": "Interested Grade",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Preferred Enrollment Date",
+              "displayName": "Preferred Enrollment Date",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Interested Program",
+              "displayName": "Interested Program",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Parent Message",
+              "displayName": "Parent Message",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Lead Score",
+              "displayName": "Lead Score",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Priority",
+              "displayName": "Priority",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Qualification Status",
+              "displayName": "Qualification Status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Intent Score",
+              "displayName": "Intent Score",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Student Fit Score",
+              "displayName": "Student Fit Score",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Confidence Score",
+              "displayName": "Confidence Score",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Reason",
+              "displayName": "Reason",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Key Signals",
+              "displayName": "Key Signals",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Missing Information",
+              "displayName": "Missing Information",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Recommended Action",
+              "displayName": "Recommended Action",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Duplicate Key",
+              "displayName": "Duplicate Key",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {
+          "cellFormat": "RAW"
+        }
+      },
+      "id": "0c028c14-7641-45b3-ba59-c8fcef732f2a",
+      "name": "Mark Telegram Sent",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        3440,
+        -656
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000
+    },
+    {
+      "parameters": {
+        "operation": "appendOrUpdate",
+        "documentId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "REPLACE_WITH_GOOGLE_SHEET_ID",
+          "cachedResultName": "School Enrollment System"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "list",
+          "value": "Leads",
+          "cachedResultName": "Leads"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Phone Number": "={{ $('Validate & Prepare').item.json.phone }}",
+            "Telegram Status": "NOT_SENT",
+            "Duplicate Key": "={{ $('Validate & Prepare').item.json.duplicateKey }}"
+          },
+          "matchingColumns": [
+            "Duplicate Key"
+          ],
+          "schema": [
+            {
+              "id": "Lead ID",
+              "displayName": "Lead ID",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Processing Status",
+              "displayName": "Processing Status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "AI Status",
+              "displayName": "AI Status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Telegram Status",
+              "displayName": "Telegram Status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Error Message",
+              "displayName": "Error Message",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Processing Started Time",
+              "displayName": "Processing Started Time",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Qualified Time",
+              "displayName": "Qualified Time",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Parent Name",
+              "displayName": "Parent Name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Phone Number",
+              "displayName": "Phone Number",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Email",
+              "displayName": "Email",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Student Name",
+              "displayName": "Student Name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Student Age",
+              "displayName": "Student Age",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Current Grade",
+              "displayName": "Current Grade",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Interested Grade",
+              "displayName": "Interested Grade",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Preferred Enrollment Date",
+              "displayName": "Preferred Enrollment Date",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Interested Program",
+              "displayName": "Interested Program",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Parent Message",
+              "displayName": "Parent Message",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Lead Score",
+              "displayName": "Lead Score",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Priority",
+              "displayName": "Priority",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Qualification Status",
+              "displayName": "Qualification Status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Intent Score",
+              "displayName": "Intent Score",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Student Fit Score",
+              "displayName": "Student Fit Score",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Confidence Score",
+              "displayName": "Confidence Score",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Reason",
+              "displayName": "Reason",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Key Signals",
+              "displayName": "Key Signals",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Missing Information",
+              "displayName": "Missing Information",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Recommended Action",
+              "displayName": "Recommended Action",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Duplicate Key",
+              "displayName": "Duplicate Key",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {
+          "cellFormat": "RAW"
+        }
+      },
+      "id": "0c892cc1-b799-4a89-8a38-e78663fe62c6",
+      "name": "WARM - Save Only",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        3216,
+        -272
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000
+    },
+    {
+      "parameters": {
+        "operation": "appendOrUpdate",
+        "documentId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "REPLACE_WITH_GOOGLE_SHEET_ID",
+          "cachedResultName": "School Enrollment System"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "list",
+          "value": "Leads",
+          "cachedResultName": "Leads"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Phone Number": "={{ $('Validate & Prepare').item.json.phone }}",
+            "Qualification Status": "Nurture",
+            "Telegram Status": "NOT_SENT",
+            "Duplicate Key": "={{ $('Validate & Prepare').item.json.duplicateKey }}"
+          },
+          "matchingColumns": [
+            "Duplicate Key"
+          ],
+          "schema": [
+            {
+              "id": "Lead ID",
+              "displayName": "Lead ID",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Processing Status",
+              "displayName": "Processing Status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "AI Status",
+              "displayName": "AI Status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Telegram Status",
+              "displayName": "Telegram Status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Error Message",
+              "displayName": "Error Message",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Processing Started Time",
+              "displayName": "Processing Started Time",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Qualified Time",
+              "displayName": "Qualified Time",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Parent Name",
+              "displayName": "Parent Name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Phone Number",
+              "displayName": "Phone Number",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Email",
+              "displayName": "Email",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Student Name",
+              "displayName": "Student Name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Student Age",
+              "displayName": "Student Age",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Current Grade",
+              "displayName": "Current Grade",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Interested Grade",
+              "displayName": "Interested Grade",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Preferred Enrollment Date",
+              "displayName": "Preferred Enrollment Date",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Interested Program",
+              "displayName": "Interested Program",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Parent Message",
+              "displayName": "Parent Message",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Lead Score",
+              "displayName": "Lead Score",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Priority",
+              "displayName": "Priority",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Qualification Status",
+              "displayName": "Qualification Status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Intent Score",
+              "displayName": "Intent Score",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Student Fit Score",
+              "displayName": "Student Fit Score",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Confidence Score",
+              "displayName": "Confidence Score",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Reason",
+              "displayName": "Reason",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Key Signals",
+              "displayName": "Key Signals",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Missing Information",
+              "displayName": "Missing Information",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Recommended Action",
+              "displayName": "Recommended Action",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Duplicate Key",
+              "displayName": "Duplicate Key",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {
+          "cellFormat": "RAW"
+        }
+      },
+      "id": "3eca7171-c8bb-4e93-9c6a-444202ed03f0",
+      "name": "COLD - Mark Nurture",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        3216,
+        -80
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000
+    },
+    {
+      "parameters": {
+        "operation": "appendOrUpdate",
+        "documentId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "REPLACE_WITH_GOOGLE_SHEET_ID",
+          "cachedResultName": "School Enrollment System"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "list",
+          "value": "Leads",
+          "cachedResultName": "Leads"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Lead ID": "={{ $('Set PROCESSING Status').item.json[\"Lead ID\"] }}",
+            "Phone Number": "={{ $('Validate & Prepare').item.json.phone }}",
+            "Processing Status": "AI_FAILED",
+            "AI Status": "FAILED",
+            "Error Message": "Gemini qualification failed after 3 attempts.",
+            "Duplicate Key": "={{ $('Validate & Prepare').item.json.duplicateKey }}"
+          },
+          "matchingColumns": [
+            "Duplicate Key"
+          ],
+          "schema": [
+            {
+              "id": "Lead ID",
+              "displayName": "Lead ID",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Processing Status",
+              "displayName": "Processing Status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "AI Status",
+              "displayName": "AI Status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Telegram Status",
+              "displayName": "Telegram Status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Error Message",
+              "displayName": "Error Message",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Processing Started Time",
+              "displayName": "Processing Started Time",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Qualified Time",
+              "displayName": "Qualified Time",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Parent Name",
+              "displayName": "Parent Name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Phone Number",
+              "displayName": "Phone Number",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Email",
+              "displayName": "Email",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Student Name",
+              "displayName": "Student Name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Student Age",
+              "displayName": "Student Age",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Current Grade",
+              "displayName": "Current Grade",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Interested Grade",
+              "displayName": "Interested Grade",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Preferred Enrollment Date",
+              "displayName": "Preferred Enrollment Date",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Interested Program",
+              "displayName": "Interested Program",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Parent Message",
+              "displayName": "Parent Message",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Lead Score",
+              "displayName": "Lead Score",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Priority",
+              "displayName": "Priority",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Qualification Status",
+              "displayName": "Qualification Status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Intent Score",
+              "displayName": "Intent Score",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Student Fit Score",
+              "displayName": "Student Fit Score",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Confidence Score",
+              "displayName": "Confidence Score",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Reason",
+              "displayName": "Reason",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Key Signals",
+              "displayName": "Key Signals",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Missing Information",
+              "displayName": "Missing Information",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Recommended Action",
+              "displayName": "Recommended Action",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Duplicate Key",
+              "displayName": "Duplicate Key",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {
+          "cellFormat": "RAW"
+        }
+      },
+      "id": "c71297b9-b49f-45e7-8de3-a592fd85ff3e",
+      "name": "Log AI_FAILED",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        2320,
+        -368
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000
+    },
+    {
+      "parameters": {
+        "chatId": "REPLACE_WITH_TELEGRAM_CHAT_ID",
+        "text": "=⚠️ Lead Qualification FAILED\n\nLead ID: {{ $('Validate & Prepare').item.json.leadId }}\nParent: {{ $('Validate & Prepare').item.json.parentName }}\nPhone: {{ $('Validate & Prepare').item.json.phone }}\nError: Gemini AI qualification failed after 3 attempts. Manual review required.",
+        "additionalFields": {}
+      },
+      "id": "b13153cf-a170-4c11-a979-9b0f6a102d13",
+      "name": "Admin Error Alert",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        2544,
+        -368
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "appendOrUpdate",
+        "documentId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "REPLACE_WITH_GOOGLE_SHEET_ID",
+          "cachedResultName": "School Enrollment System"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "list",
+          "value": "Leads",
+          "cachedResultName": "Leads"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Lead ID": "={{ $json.leadId }}",
+            "Processing Status": "INVALID_INPUT",
+            "Error Message": "=Missing required information: {{ $json.missingFields }}",
+            "AI Status": "SKIPPED",
+            "Processing Started Time": "={{ $json.processingStartedTime }}",
+            "Parent Name": "={{ $json.parentName }}",
+            "Phone Number": "={{ $json.phone }}",
+            "Email": "={{ $json.email }}",
+            "Student Name": "={{ $json.studentName }}",
+            "Parent Message": "={{ $json.message }}",
+            "Duplicate Key": "={{ $('Validate & Prepare').item.json.duplicateKey }}"
+          },
+          "matchingColumns": [
+            "Lead ID"
+          ],
+          "schema": [
+            {
+              "id": "Lead ID",
+              "displayName": "Lead ID",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Processing Status",
+              "displayName": "Processing Status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "AI Status",
+              "displayName": "AI Status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Telegram Status",
+              "displayName": "Telegram Status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Error Message",
+              "displayName": "Error Message",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Processing Started Time",
+              "displayName": "Processing Started Time",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Qualified Time",
+              "displayName": "Qualified Time",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Parent Name",
+              "displayName": "Parent Name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Phone Number",
+              "displayName": "Phone Number",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Email",
+              "displayName": "Email",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Student Name",
+              "displayName": "Student Name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Student Age",
+              "displayName": "Student Age",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Current Grade",
+              "displayName": "Current Grade",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Interested Grade",
+              "displayName": "Interested Grade",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Preferred Enrollment Date",
+              "displayName": "Preferred Enrollment Date",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Interested Program",
+              "displayName": "Interested Program",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Parent Message",
+              "displayName": "Parent Message",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Lead Score",
+              "displayName": "Lead Score",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Priority",
+              "displayName": "Priority",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Qualification Status",
+              "displayName": "Qualification Status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Intent Score",
+              "displayName": "Intent Score",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Student Fit Score",
+              "displayName": "Student Fit Score",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Confidence Score",
+              "displayName": "Confidence Score",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Reason",
+              "displayName": "Reason",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Key Signals",
+              "displayName": "Key Signals",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Missing Information",
+              "displayName": "Missing Information",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Recommended Action",
+              "displayName": "Recommended Action",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Duplicate Key",
+              "displayName": "Duplicate Key",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {
+          "cellFormat": "RAW"
+        }
+      },
+      "id": "5fde058f-794f-4e9a-9542-495a70ce06fb",
+      "name": "Log Invalid Input",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        672,
+        -176
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        1872,
+        336
+      ],
+      "typeVersion": 1,
+      "id": "094dd01b-4203-42e9-8c4a-132267c93488",
+      "name": "Sticky Note"
+    },
+    {
+      "parameters": {
+        "jsCode": "const item = $input.first().json;\nconst output = item.output || {};\n\nconst leadScore = Number(output.lead_score || 0);\n\nlet finalPriority = 'COLD';\n\nif (leadScore >= 85) {\n  finalPriority = 'HOT';\n} else if (leadScore >= 60) {\n  finalPriority = 'WARM';\n}\n\nreturn [{\n  json: {\n    ...item,\n    output: {\n      ...output,\n      priority: finalPriority\n    }\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2320,
+        -176
+      ],
+      "id": "48260434-2a0b-4251-a794-757fd5b4758c",
+      "name": "Validate AI Result & Apply Guardrails"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "15b353da-e9b6-4c84-9cc9-96ed1407c720",
+              "leftValue": "={{ $json.output.confidence_score }}",
+              "rightValue": 70,
+              "operator": {
+                "type": "number",
+                "operation": "gte"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        2544,
+        -176
+      ],
+      "id": "41c64b5d-2b30-405d-8ef3-376663fb2bcf",
+      "name": "Confidence High?"
+    },
+    {
+      "parameters": {
+        "operation": "appendOrUpdate",
+        "documentId": {
+          "__rl": true,
+          "value": "REPLACE_WITH_GOOGLE_SHEET_ID",
+          "mode": "list",
+          "cachedResultName": "School Enrollment System"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Leads",
+          "mode": "list",
+          "cachedResultName": "Leads"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Phone Number": "={{ $('Validate & Prepare').item.json.phone }}",
+            "Lead ID": "={{ $('Set PROCESSING Status').item.json[\"Lead ID\"] }}",
+            "Processing Status": "COMPLETED",
+            "AI Status": "SUCCESS",
+            "Qualification Status": "Needs Review",
+            "Priority": "NEEDS_REVIEW",
+            "Confidence Score": "={{ $('Validate AI Result & Apply Guardrails').item.json.output.confidence_score }}",
+            "Recommended Action": "=Manual review required before taking the recommended admission action.",
+            "Reason": "={{ $('Validate AI Result & Apply Guardrails').item.json.output.reason }}",
+            "Telegram Status": "PENDING",
+            "Qualified Time": "={{ $now.toISO() }}",
+            "Intent Score": "={{ $json.output.intent_score }}",
+            "Student Fit Score": "={{ $json.output.student_fit_score }}",
+            "Key Signals": "={{ $json.output.key_signals }}",
+            "Missing Information": "={{ $json.output.missing_information }}",
+            "Lead Score": "={{ $json.output.lead_score }}",
+            "Duplicate Key": "={{ $('Validate & Prepare').item.json.duplicateKey }}"
+          },
+          "matchingColumns": [
+            "Duplicate Key"
+          ],
+          "schema": [
+            {
+              "id": "Lead ID",
+              "displayName": "Lead ID",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Processing Status",
+              "displayName": "Processing Status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "AI Status",
+              "displayName": "AI Status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Telegram Status",
+              "displayName": "Telegram Status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Error Message",
+              "displayName": "Error Message",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Processing Started Time",
+              "displayName": "Processing Started Time",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Qualified Time",
+              "displayName": "Qualified Time",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Parent Name",
+              "displayName": "Parent Name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Phone Number",
+              "displayName": "Phone Number",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Email",
+              "displayName": "Email",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Student Name",
+              "displayName": "Student Name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Student Age",
+              "displayName": "Student Age",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Current Grade",
+              "displayName": "Current Grade",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Interested Grade",
+              "displayName": "Interested Grade",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Preferred Enrollment Date",
+              "displayName": "Preferred Enrollment Date",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Interested Program",
+              "displayName": "Interested Program",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Parent Message",
+              "displayName": "Parent Message",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Lead Score",
+              "displayName": "Lead Score",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Priority",
+              "displayName": "Priority",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Qualification Status",
+              "displayName": "Qualification Status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Intent Score",
+              "displayName": "Intent Score",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Student Fit Score",
+              "displayName": "Student Fit Score",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Confidence Score",
+              "displayName": "Confidence Score",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Reason",
+              "displayName": "Reason",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Key Signals",
+              "displayName": "Key Signals",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Missing Information",
+              "displayName": "Missing Information",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Recommended Action",
+              "displayName": "Recommended Action",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Duplicate Key",
+              "displayName": "Duplicate Key",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        2768,
+        -80
+      ],
+      "id": "ac6fba82-194b-45fa-b98b-74d5a2334854",
+      "name": "Mark Needs Review"
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "REPLACE_WITH_GOOGLE_SHEET_ID",
+          "mode": "list",
+          "cachedResultName": "School Enrollment System"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Leads",
+          "mode": "list",
+          "cachedResultName": "Leads"
+        },
+        "filtersUI": {
+          "values": [
+            {
+              "lookupColumn": "Duplicate Key",
+              "lookupValue": "={{ $('Validate & Prepare').item.json.duplicateKey }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        672,
+        -368
+      ],
+      "id": "b3fae0ab-50ea-4bfc-b040-88c3926f13cc",
+      "name": "Check Existing Lead",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "89939be3-5186-4760-92f9-746ec8d8d7af",
+              "leftValue": "={{ $json[\"Lead ID\"] }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        896,
+        -368
+      ],
+      "id": "5b0cfdb9-3614-4108-b380-fd7d266983df",
+      "name": "Existing Lead?"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "2c50e238-4322-40c7-9d4c-e76f5a5f5778",
+              "name": "leadId",
+              "value": "={{ $json['Lead ID'] }}",
+              "type": "string"
+            },
+            {
+              "id": "d0bfd50a-cd2f-43fb-950b-6165a765667f",
+              "name": "existingSubmissionSignature",
+              "value": "={{ $json['Submission Signature'] }}",
+              "type": "string"
+            },
+            {
+              "id": "b32b5d7e-db40-4a02-8589-532f5fb0324f",
+              "name": "duplicateKey",
+              "value": "={{ $('Validate & Prepare').item.json.duplicateKey }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        1120,
+        -464
+      ],
+      "id": "a9a6ab38-68fe-4645-8ebe-fbac0aa9e0c9",
+      "name": "Prepare Existing Lead"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "9b8c0885-1f37-47e7-a87c-68110014603b",
+              "name": "leadId",
+              "value": "={{ $('Validate & Prepare').item.json.leadId }}",
+              "type": "string"
+            },
+            {
+              "id": "286d1757-d539-4417-a36b-eb7aea41bc5b",
+              "name": "duplicateKey",
+              "value": "={{ $('Validate & Prepare').item.json.duplicateKey }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        1344,
+        -224
+      ],
+      "id": "5bd4002e-1c53-4ea9-8998-7d3a5fed4fe1",
+      "name": "Prepare New Lead"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "1e8a6e65-0fa2-4f8f-9962-5ddcf44dc1f9",
+              "leftValue": "={{ $json.existingSubmissionSignature }}",
+              "rightValue": "={{ $('Validate & Prepare').item.json.submissionSignature }}",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        1344,
+        -464
+      ],
+      "id": "478b0701-7b1b-46c6-a35b-003d10568b8c",
+      "name": "Exact Duplicate?"
+    },
+    {
+      "parameters": {
+        "operation": "appendOrUpdate",
+        "documentId": {
+          "__rl": true,
+          "value": "REPLACE_WITH_GOOGLE_SHEET_ID",
+          "mode": "list",
+          "cachedResultName": "School Enrollment System"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Leads",
+          "mode": "list",
+          "cachedResultName": "Leads"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Duplicate Key": "={{ $('Validate & Prepare').item.json.duplicateKey }}",
+            "Processing Status": "DUPLICATE_SKIPPED",
+            "AI Status": "SKIPPED"
+          },
+          "matchingColumns": [
+            "Duplicate Key"
+          ],
+          "schema": [
+            {
+              "id": "Lead ID",
+              "displayName": "Lead ID",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Processing Status",
+              "displayName": "Processing Status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "AI Status",
+              "displayName": "AI Status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Telegram Status",
+              "displayName": "Telegram Status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Error Message",
+              "displayName": "Error Message",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Processing Started Time",
+              "displayName": "Processing Started Time",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Qualified Time",
+              "displayName": "Qualified Time",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Parent Name",
+              "displayName": "Parent Name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Phone Number",
+              "displayName": "Phone Number",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Email",
+              "displayName": "Email",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Student Name",
+              "displayName": "Student Name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Student Age",
+              "displayName": "Student Age",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Current Grade",
+              "displayName": "Current Grade",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Interested Grade",
+              "displayName": "Interested Grade",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Preferred Enrollment Date",
+              "displayName": "Preferred Enrollment Date",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Interested Program",
+              "displayName": "Interested Program",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Parent Message",
+              "displayName": "Parent Message",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Lead Score",
+              "displayName": "Lead Score",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Priority",
+              "displayName": "Priority",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Qualification Status",
+              "displayName": "Qualification Status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Intent Score",
+              "displayName": "Intent Score",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Student Fit Score",
+              "displayName": "Student Fit Score",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Confidence Score",
+              "displayName": "Confidence Score",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Reason",
+              "displayName": "Reason",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Key Signals",
+              "displayName": "Key Signals",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Missing Information",
+              "displayName": "Missing Information",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Recommended Action",
+              "displayName": "Recommended Action",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Duplicate Key",
+              "displayName": "Duplicate Key",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Submission Signature",
+              "displayName": "Submission Signature",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        1568,
+        -512
+      ],
+      "id": "49cd2f64-8695-45a2-9a82-04450db5213c",
+      "name": "Mark Duplicate Skipped"
+    },
+    {
+      "parameters": {
+        "operation": "appendOrUpdate",
+        "documentId": {
+          "__rl": true,
+          "value": "REPLACE_WITH_GOOGLE_SHEET_ID",
+          "mode": "list",
+          "cachedResultName": "School Enrollment System"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Leads",
+          "mode": "list",
+          "cachedResultName": "Leads"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Duplicate Key": "={{ $('Validate & Prepare').item.json.duplicateKey }}",
+            "Telegram Status": "FAILED",
+            "Error Message": "Telegram alert failed. Manual follow-up required."
+          },
+          "matchingColumns": [
+            "Duplicate Key"
+          ],
+          "schema": [
+            {
+              "id": "Lead ID",
+              "displayName": "Lead ID",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Processing Status",
+              "displayName": "Processing Status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "AI Status",
+              "displayName": "AI Status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Telegram Status",
+              "displayName": "Telegram Status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Error Message",
+              "displayName": "Error Message",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Processing Started Time",
+              "displayName": "Processing Started Time",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Qualified Time",
+              "displayName": "Qualified Time",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Parent Name",
+              "displayName": "Parent Name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Phone Number",
+              "displayName": "Phone Number",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Email",
+              "displayName": "Email",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Student Name",
+              "displayName": "Student Name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Student Age",
+              "displayName": "Student Age",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Current Grade",
+              "displayName": "Current Grade",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Interested Grade",
+              "displayName": "Interested Grade",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Preferred Enrollment Date",
+              "displayName": "Preferred Enrollment Date",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Interested Program",
+              "displayName": "Interested Program",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Parent Message",
+              "displayName": "Parent Message",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Lead Score",
+              "displayName": "Lead Score",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Priority",
+              "displayName": "Priority",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Qualification Status",
+              "displayName": "Qualification Status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Intent Score",
+              "displayName": "Intent Score",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Student Fit Score",
+              "displayName": "Student Fit Score",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Confidence Score",
+              "displayName": "Confidence Score",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Reason",
+              "displayName": "Reason",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Key Signals",
+              "displayName": "Key Signals",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Missing Information",
+              "displayName": "Missing Information",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Recommended Action",
+              "displayName": "Recommended Action",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Duplicate Key",
+              "displayName": "Duplicate Key",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Submission Signature",
+              "displayName": "Submission Signature",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        3440,
+        -464
+      ],
+      "id": "c6ff8b5f-a784-440c-a599-97ad12a3003d",
+      "name": "Mark Telegram Failed"
+    },
+    {
+      "parameters": {
+        "chatId": "REPLACE_WITH_TELEGRAM_CHAT_ID",
+        "text": "=⚠️ HOT Lead Telegram Alert Failed\n\nLead ID: {{ $('Set PROCESSING Status').item.json[\"Lead ID\"] }}  \n\nParent: {{ $('Validate & Prepare').item.json.parentName }}  \n\nPhone: {{ $('Validate & Prepare').item.json.phone }}  \n\nStudent: {{ $('Validate & Prepare').item.json.studentName }}  \n\nPriority: HOT  Issue: The HOT lead alert could not be sent. Manual follow-up is required.",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        3664,
+        -464
+      ],
+      "id": "60714363-a3e6-4dce-8633-afae0813c895",
+      "name": "Admin Telegram Failure Alert"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "New Form Response": {
+      "main": [
+        [
+          {
+            "node": "Validate & Prepare",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate & Prepare": {
+      "main": [
+        [
+          {
+            "node": "Input Valid?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Input Valid?": {
+      "main": [
+        [
+          {
+            "node": "Check Existing Lead",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Log Invalid Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set PROCESSING Status": {
+      "main": [
+        [
+          {
+            "node": "AI Lead Qualification",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Lead Qualification": {
+      "main": [
+        [
+          {
+            "node": "Validate AI Result & Apply Guardrails",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Log AI_FAILED",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gemini Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Lead Qualification",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Qualification Schema": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "AI Lead Qualification",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save Qualification Result": {
+      "main": [
+        [
+          {
+            "node": "Priority Router",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Priority Router": {
+      "main": [
+        [
+          {
+            "node": "HOT Lead Alert",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "WARM - Save Only",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "COLD - Mark Nurture",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HOT Lead Alert": {
+      "main": [
+        [
+          {
+            "node": "Mark Telegram Sent",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Mark Telegram Failed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log AI_FAILED": {
+      "main": [
+        [
+          {
+            "node": "Admin Error Alert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate AI Result & Apply Guardrails": {
+      "main": [
+        [
+          {
+            "node": "Confidence High?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Confidence High?": {
+      "main": [
+        [
+          {
+            "node": "Save Qualification Result",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Mark Needs Review",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Existing Lead": {
+      "main": [
+        [
+          {
+            "node": "Existing Lead?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Existing Lead?": {
+      "main": [
+        [
+          {
+            "node": "Prepare Existing Lead",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Prepare New Lead",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Existing Lead": {
+      "main": [
+        [
+          {
+            "node": "Exact Duplicate?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare New Lead": {
+      "main": [
+        [
+          {
+            "node": "Set PROCESSING Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Exact Duplicate?": {
+      "main": [
+        [
+          {
+            "node": "Mark Duplicate Skipped",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Set PROCESSING Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mark Telegram Failed": {
+      "main": [
+        [
+          {
+            "node": "Admin Telegram Failure Alert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "timeSavedMode": "fixed",
+    "timezone": "Asia/Yangon",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": false
+  },
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "nodeGroups": [
+    {
+      "id": "5c4508c8-6d38-4d20-9522-bb095af45d88",
+      "name": "AI Qualification",
+      "nodeIds": [
+        "9277cde7-4697-4cb4-8f16-c8f6230a0537",
+        "7fdd1bb1-0ba3-4e88-8a5c-14571601bbff",
+        "dffe363c-36cc-411e-8d56-7c83892805bf"
+      ],
+      "description": "Gemini analyzes the inquiry against the admission knowledge base and returns structured JSON with retries."
+    }
+  ],
+  "tags": []
+}

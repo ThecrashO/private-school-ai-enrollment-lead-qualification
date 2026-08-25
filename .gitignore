@@ -1,0 +1,44 @@
+# ------------------------------------------------------------
+# Private / raw n8n workflow exports
+# Commit only the sanitized *.clean.json workflow files.
+# ------------------------------------------------------------
+workflow/private-school-ai-enrollment-lead-qualification.json
+workflow/private-school-ai-error-handler.json
+private-school-ai-enrollment-lead-qualification.json
+private-school-ai-error-handler.json
+# Optional local/private workflow backups
+*.private.json
+*.raw.json
+*.backup.json
+*.bak
+# ------------------------------------------------------------
+# Environment variables and secrets
+# ------------------------------------------------------------
+.env
+.env.*
+!.env.example
+credentials.json
+secrets.json
+secrets.*
+*.pem
+*.key
+*.p12
+*.pfx
+# ------------------------------------------------------------
+# n8n local/runtime data
+# ------------------------------------------------------------
+.n8n/
+n8n-data/
+# ------------------------------------------------------------
+# Logs and temporary files
+# ------------------------------------------------------------
+*.log
+*.tmp
+*.temp
+# ------------------------------------------------------------
+# Editor / OS files
+# ------------------------------------------------------------
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
